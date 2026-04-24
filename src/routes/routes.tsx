@@ -17,6 +17,7 @@ const SupportPage = lazy(() => import("@/pages/SupportPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 
 import DashLayout from "@/components/layouts/DashLayout"
+import AuthWrapper from "@/components/auth/AuthWrapper"
 import { NotFound } from "@/pages/NotFoundPage"
 
 export const Routes: RouteObject[] = [
@@ -38,7 +39,11 @@ export const Routes: RouteObject[] = [
   },
   {
     path: "/dashboard",
-    element: <DashLayout />, // layout will render nested pages via <Outlet />
+    element: (
+      <AuthWrapper>
+        <DashLayout />
+      </AuthWrapper>
+    ), // layout will render nested pages via <Outlet />
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "orders", element: <OrderManagementPage /> },

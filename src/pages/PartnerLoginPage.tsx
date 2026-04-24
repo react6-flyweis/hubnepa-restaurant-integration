@@ -8,7 +8,7 @@ import {
   Lock,
   Mail,
 } from "lucide-react"
-import { useState, type ComponentType } from "react"
+import { useEffect, useState, type ComponentType } from "react"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router"
 import { z } from "zod"
@@ -17,9 +17,12 @@ import authBackground from "@/assets/auth-bg.jpg"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { extractErrorMessage } from "@/lib/error-handler"
 import { cn } from "@/lib/utils"
 import Header from "@/components/layouts/Header"
 import Footer from "@/components/layouts/Footer"
+import { useAuthStore } from "@/stores/authStore"
+import { usePartnerLoginMutation } from "../hooks/usePartnerLoginMutation"
 
 const partnerLoginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -137,6 +140,8 @@ function PartnerLoginInputField({
 export default function PartnerLoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const loginMutation = usePartnerLoginMutation()
 
   const values = useForm<PartnerLoginFormValues>({
     resolver: zodResolver(partnerLoginSchema),
@@ -147,17 +152,36 @@ export default function PartnerLoginPage() {
     },
   })
 
-  function onSubmit(data: PartnerLoginFormValues) {
-    // TODO: handle authentication logic here (API call, token storage, etc.)
-    values.reset(data)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
-    // redirect to dashboard on successful login
-    navigate("/dashboard", { replace: true })
+  async function onSubmit(data: PartnerLoginFormValues) {
+    values.clearErrors("root.serverError")
+
+    try {
+      await loginMutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+      })
+    } catch (error) {
+      values.setError("root.serverError", {
+        type: "server",
+        message: extractErrorMessage(
+          error,
+          "Unable to sign in right now. Please try again."
+        ),
+      })
+    }
   }
 
   function togglePasswordVisibility() {
     setIsPasswordVisible((currentState) => !currentState)
   }
+
+  const loginErrorMessage = values.formState.errors.root?.serverError?.message
 
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-[#020816] text-white">
@@ -220,11 +244,16 @@ export default function PartnerLoginPage() {
 
                 <Button
                   type="submit"
+                  disabled={loginMutation.isPending}
                   className="h-14 w-full rounded-[14px] bg-[#01B13D] text-base font-semibold text-white shadow-[0_20px_40px_rgba(1,177,61,0.18)] hover:bg-[#01A739]"
                 >
-                  Sign In
+                  {loginMutation.isPending ? "Signing In..." : "Sign In"}
                   <ArrowRight className="size-4" />
                 </Button>
+
+                {loginErrorMessage ? (
+                  <p className="text-sm text-[#FF7A7A]">{loginErrorMessage}</p>
+                ) : null}
 
                 <div className="rounded-[14px] border border-[#17233F] bg-[#071026]/82 px-5 py-5 text-center">
                   <p className="text-sm text-[#7E8AA7]">

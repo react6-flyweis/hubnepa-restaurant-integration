@@ -1,4 +1,4 @@
-import { NavLink } from "react-router"
+import { NavLink, useNavigate } from "react-router"
 import {
   ChefHat,
   Wallet,
@@ -26,9 +26,11 @@ import {
   SidebarGroup,
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
+import { logout } from "@/lib/auth-api"
 
 export default function DashSidebar() {
   const { toggleSidebar } = useSidebar()
+  const navigate = useNavigate()
 
   const menu = [
     { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard", end: true },
@@ -41,6 +43,11 @@ export default function DashSidebar() {
     { label: "Support & Help", icon: MessageSquare, to: "/dashboard/support" },
     { label: "Settings", icon: Settings, to: "/dashboard/settings" },
   ]
+
+  async function handleLogout() {
+    await logout()
+    navigate("/partner-login", { replace: true })
+  }
 
   return (
     <Sidebar className="bg-white text-gray-800">
@@ -83,10 +90,7 @@ export default function DashSidebar() {
           <SidebarMenuItem>
             <button
               className="flex w-full items-center gap-2 px-2 py-1 text-red-600 hover:bg-red-100"
-              onClick={() => {
-                // TODO: wire up real sign‑out logic
-                console.log("sign out")
-              }}
+              onClick={handleLogout}
             >
               <LogOut className="size-4" />
               <span>Sign Out</span>

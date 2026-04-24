@@ -27,3 +27,14 @@ export async function login(payload: LoginRequest): Promise<LoginResponseData> {
   return response.data.data
 }
 
+export async function logout(): Promise<void> {
+  const { refreshToken, clearAuth } = useAuthStore.getState()
+
+  try {
+    await api.post("/auth/logout", {
+      refreshToken,
+    })
+  } finally {
+    clearAuth()
+  }
+}

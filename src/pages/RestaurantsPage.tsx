@@ -3,6 +3,8 @@ import { Link } from "react-router"
 import Header from "@/components/layouts/Header"
 import Footer from "@/components/layouts/Footer"
 import curatedBg from "@/assets/curated-bg.jpg"
+import { useRestaurantsQuery } from "@/hooks/useRestaurantsQuery"
+import { extractErrorMessage } from "@/lib/error-handler"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -23,91 +25,15 @@ import {
 
 import {
   RestaurantCard,
-  type Restaurant,
 } from "@/components/home/RestaurantCard"
-
-const restaurants: Restaurant[] = [
-  {
-    name: "Stella's Rooftop",
-    category: "Italian",
-    subcategory: "Rooftop",
-    time: "30-45 min",
-    distance: "1.2 mi",
-    rating: 4.8,
-    deliveryFee: "$2.99",
-    ratingsCount: "1240+",
-    tags: ["Best view", "Wood fire pizza"],
-    badge: "Exclusive Partner",
-    image: "https://picsum.photos/seed/stella/400/240",
-    premium: "Premium",
-    minOrder: "$20",
-  },
-  {
-    name: "Nobu Downtown",
-    category: "Japanese",
-    subcategory: "Sushi Bar",
-    time: "40-55 min",
-    distance: "2.5 mi",
-    rating: 4.9,
-    deliveryFee: "Free",
-    ratingsCount: "850+",
-    tags: ["Omakase available", "Fresh import"],
-    badge: "Exclusive Partner",
-    image: "https://picsum.photos/seed/nobu/400/240",
-  },
-  {
-    name: "The Charleston",
-    category: "Southern",
-    subcategory: "Heritage",
-    time: "60-90 min",
-    distance: "3.8 mi",
-    rating: 5.0,
-    deliveryFee: "$5.99",
-    ratingsCount: "2100+",
-    tags: ["Tasting menu", "Historic"],
-    badge: "Exclusive Partner",
-    image: "https://picsum.photos/seed/charleston/400/240",
-  },
-  {
-    name: "Farm & Fire",
-    category: "New American",
-    subcategory: "Farm to Table",
-    time: "35-50 min",
-    distance: "0.8 mi",
-    rating: 4.7,
-    deliveryFee: "$1.49",
-    ratingsCount: "980+",
-    tags: ["Organic", "Outdoor seating"],
-    image: "https://picsum.photos/seed/farmfire/400/240",
-  },
-  {
-    name: "Tony's Brick Oven",
-    category: "Italian",
-    subcategory: "Authentic",
-    time: "30-45 min",
-    distance: "1.5 mi",
-    rating: 4.8,
-    deliveryFee: "Free",
-    ratingsCount: "3400+",
-    tags: ["Legendary", "Family favorite"],
-    image: "https://picsum.photos/seed/tony/400/240",
-  },
-  {
-    name: "Saffron Lounge",
-    category: "Indian",
-    subcategory: "Fusion",
-    time: "45-60 min",
-    distance: "4.2 mi",
-    rating: 4.6,
-    deliveryFee: "$3.49",
-    ratingsCount: "560+",
-    tags: ["Signature curry", "Cocktails"],
-    image: "https://picsum.photos/seed/saffron/400/240",
-  },
-]
 
 export default function RestaurantsPage() {
   const [activeFilter, setActiveFilter] = React.useState("All Cuisines")
+  const { data, isLoading, error } = useRestaurantsQuery(1, 10)
+  const restaurants = data?.restaurants ?? []
+  const errorMessage = error
+    ? extractErrorMessage(error, "Failed to load restaurants. Please try again.")
+    : null
 
   const filters = [
     { label: "All Cuisines", icon: ForkKnife },
@@ -194,9 +120,29 @@ export default function RestaurantsPage() {
 
       {/* restaurant cards grid */}
       <div className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-6 py-4 sm:grid-cols-2 sm:px-8 lg:grid-cols-3 lg:px-10">
-        {restaurants.map((r) => (
-          <RestaurantCard key={r.name} {...r} />
-        ))}
+        {isLoading && (
+          <div className="col-span-full text-center text-slate-300">
+            Loading restaurants...
+          </div>
+        )}
+
+        {!isLoading && errorMessage && (
+          <div className="col-span-full rounded-lg bg-red-500/10 px-4 py-3 text-center text-red-300">
+            {errorMessage}
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && restaurants.length === 0 && (
+          <div className="col-span-full text-center text-slate-300">
+            No restaurants found.
+          </div>
+        )}
+
+        {!isLoading &&
+          !errorMessage &&
+          restaurants.map((restaurant) => (
+            <RestaurantCard key={restaurant.id} {...restaurant} />
+          ))}
       </div>
 
       {/* partnership banner */}

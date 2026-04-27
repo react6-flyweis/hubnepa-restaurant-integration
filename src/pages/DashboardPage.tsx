@@ -2,9 +2,15 @@ import {
   StatsCard,
   type StatsCardProps,
 } from "@/components/dashboard/StatsCard"
+import { useMemo } from "react"
 import { Calendar, CreditCard, DollarSign, Users, Wallet } from "lucide-react"
 
+import { type DashboardData } from "@/lib/dashboard-api"
+import { extractErrorMessage } from "@/lib/error-handler"
+import { formatCurrency } from "@/lib/report-utils"
+import { useDashboardQuery } from "@/hooks/useDashboardQuery"
 import { PageHeader } from "@/components/ui/page-header"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   MonthlyReportSection,
   type MonthlyReportCard,
@@ -22,7 +28,71 @@ import {
   type PopularItem,
 } from "@/components/dashboard/PopularItemsSection"
 
+const DEFAULT_DASHBOARD_DATA: DashboardData = {
+  totalOrders: 0,
+  monthRevenue: 0,
+  pendingOrders: 0,
+  recentOrders: [],
+  popularItems: [],
+  staffCount: 0,
+  expenses: {
+    total: 0,
+    salary: 0,
+  },
+  rating: {
+    average: 0,
+    count: 0,
+  },
+}
+
+function parseNumericValue(value: number | string | undefined) {
+  if (typeof value === "number") {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  return 0
+}
+
+function DashboardSkeleton() {
+  return (
+    <>
+      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={`stats-skeleton-${index}`} className="h-40 w-full" />
+        ))}
+      </div>
+
+      <div className="mt-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-72 w-full" />
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-72 w-full" />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-80 w-full" />
+      </div>
+    </>
+  )
+}
+
 export default function DashboardPage() {
+  const { data: dashboardData, isLoading, error } = useDashboardQuery()
+  const data = dashboardData ?? DEFAULT_DASHBOARD_DATA
+  const errorMessage = error
+    ? extractErrorMessage(error, "Failed to load dashboard.")
+    : null
+  const otherExpensesAmount = Math.max(data.expenses.total - data.expenses.salary, 0)
+
   const reportColorMap = {
     sales: "#10B981",
     expenses: "#3B82F6",
@@ -30,46 +100,48 @@ export default function DashboardPage() {
     salaries: "#F97316",
   } as const
 
-  // top-level data definitions; most types are imported from section components
-  const stats: StatsCardProps[] = [
-    {
-      title: "Sales – This Month",
-      value: "$45,250",
-      change: "12.5% vs last month",
-      changeType: "positive",
-      icon: <DollarSign className="h-5 w-5 text-green-500" />,
+  const stats = useMemo<StatsCardProps[]>(
+    () => [
+      {
+        title: "Sales – This Month",
+        value: formatCurrency(data.monthRevenue),
+        change: `${data.totalOrders} total orders`,
+        changeType: "positive",
+        icon: <DollarSign className="h-5 w-5 text-green-500" />,
       footerText: "Updated after monthly report generation",
-    },
-    {
-      title: "Expenses – This Month",
-      value: "$28,150",
-      change: "8.2% vs last month",
-      changeType: "positive",
-      icon: <Wallet className="h-5 w-5 text-blue-500" />,
+      },
+      {
+        title: "Expenses – This Month",
+        value: formatCurrency(data.expenses.total),
+        change: `${data.pendingOrders} pending orders`,
+        changeType: "positive",
+        icon: <Wallet className="h-5 w-5 text-blue-500" />,
       footerText: "Updated after monthly report generation",
-    },
-    {
-      title: "Total Staff – This Month",
-      value: "24",
-      change: "+2 vs last month",
-      changeType: "positive",
-      icon: <Users className="h-5 w-5 text-purple-500" />,
+      },
+      {
+        title: "Total Staff – This Month",
+        value: data.staffCount,
+        change: `${data.rating.average.toFixed(1)} rating (${data.rating.count})`,
+        changeType: "positive",
+        icon: <Users className="h-5 w-5 text-purple-500" />,
       footerText: "Updated after monthly report generation",
-    },
-    {
-      title: "Salary – This Month",
-      value: "$18,500",
-      change: "5.7% vs last month",
-      changeType: "positive",
-      icon: <CreditCard className="h-5 w-5 text-yellow-500" />,
-      footerText: "Updated after monthly report generation",
-    },
-  ]
+      },
+      {
+        title: "Salary – This Month",
+        value: formatCurrency(data.expenses.salary),
+        change: `${formatCurrency(otherExpensesAmount)} other expenses`,
+        changeType: "positive",
+        icon: <CreditCard className="h-5 w-5 text-yellow-500" />,
+        footerText: "Updated after monthly report generation",
+      },
+    ],
+    [data, otherExpensesAmount]
+  )
 
   const monthlyReportCards: MonthlyReportCard[] = [
     {
       title: "Sales",
-      total: "$270,250",
+      total: formatCurrency(data.monthRevenue),
       key: "sales",
       totalClassName: "text-[#10B981]",
       type: "bar",
@@ -86,7 +158,7 @@ export default function DashboardPage() {
     },
     {
       title: "Expenses",
-      total: "$167,650",
+      total: formatCurrency(data.expenses.total),
       key: "expenses",
       totalClassName: "text-[#3B82F6]",
       type: "line",
@@ -103,7 +175,7 @@ export default function DashboardPage() {
     },
     {
       title: "Maintenance Cost",
-      total: "$19,900",
+      total: formatCurrency(otherExpensesAmount),
       key: "maintenance",
       totalClassName: "text-[#A855F7]",
       type: "bar",
@@ -120,7 +192,7 @@ export default function DashboardPage() {
     },
     {
       title: "Salaries",
-      total: "$110,500",
+      total: formatCurrency(data.expenses.salary),
       key: "salaries",
       totalClassName: "text-[#F97316]",
       type: "line",
@@ -152,79 +224,42 @@ export default function DashboardPage() {
     Delivered: "bg-emerald-100 text-emerald-700",
   } as const
 
+  const salaryExpensePercent =
+    data.expenses.total > 0 ? Math.round((data.expenses.salary / data.expenses.total) * 100) : 0
+  const otherExpensePercent = Math.max(100 - salaryExpensePercent, 0)
+
   const expenseDistribution: ExpenseItem[] = [
-    { name: "Rent", value: 48, amount: 8000, key: "rent" },
-    { name: "Utilities", value: 21, amount: 3500, key: "utilities" },
-    { name: "Supplies", value: 13, amount: 2200, key: "supplies" },
-    { name: "Marketing", value: 11, amount: 1800, key: "marketing" },
-    { name: "Insurance", value: 7, amount: 1200, key: "insurance" },
-  ]
-
-  const orderRows: OrderRow[] = [
     {
-      orderId: "#ORD-8821",
-      customer: "John Doe",
-      customerAgo: "2 min ago",
-      items: "2x Chicken Burger, 1x Coke",
-      amount: "$28.50",
-      status: "New",
+      name: "Salary",
+      value: salaryExpensePercent,
+      amount: data.expenses.salary,
+      key: "rent",
     },
     {
-      orderId: "#ORD-8820",
-      customer: "Alice Smith",
-      customerAgo: "7 min ago",
-      items: "1x Veg Pizza, 1x Garlic Bread",
-      amount: "$32.00",
-      status: "Cooking",
-    },
-    {
-      orderId: "#ORD-8819",
-      customer: "Bob Wilson",
-      customerAgo: "11 min ago",
-      items: "3x Pasta Alfredo",
-      amount: "$45.00",
-      status: "Ready",
-    },
-    {
-      orderId: "#ORD-8818",
-      customer: "Emma Davis",
-      customerAgo: "18 min ago",
-      items: "1x Caesar Salad",
-      amount: "$15.50",
-      status: "Delivered",
+      name: "Other Expenses",
+      value: otherExpensePercent,
+      amount: otherExpensesAmount,
+      key: "utilities",
     },
   ]
 
-  const popularItems: PopularItem[] = [
-    {
-      name: "Spicy Chicken Burger",
-      ordersToday: 24,
-      price: "$12.99",
-      image:
-        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=120&q=80",
-    },
-    {
-      name: "Margherita Pizza",
-      ordersToday: 18,
-      price: "$15.99",
-      image:
-        "https://images.unsplash.com/photo-1548365328-8b849e96f3aa?auto=format&fit=crop&w=120&q=80",
-    },
-    {
-      name: "Caesar Salad",
-      ordersToday: 16,
-      price: "$9.99",
-      image:
-        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=120&q=80",
-    },
-    {
-      name: "Pasta Alfredo",
-      ordersToday: 14,
-      price: "$13.99",
-      image:
-        "https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?auto=format&fit=crop&w=120&q=80",
-    },
-  ]
+  const orderRows: OrderRow[] = data.recentOrders.map((order, index) => ({
+    orderId: order.orderId ?? `#ORDER-${index + 1}`,
+    customer: order.customer ?? "N/A",
+    customerAgo: order.customerAgo ?? "Just now",
+    items: order.items ?? "N/A",
+    amount: formatCurrency(parseNumericValue(order.amount)),
+    status: order.status ?? "New",
+  }))
+
+  const popularItems: PopularItem[] = data.popularItems.map((item, index) => ({
+    name: item.name ?? `Item ${index + 1}`,
+    ordersToday: item.ordersToday ?? 0,
+    price: formatCurrency(parseNumericValue(item.price)),
+    image:
+      item.image ??
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=120&q=80",
+  }))
 
   return (
     <div className="p-6">
@@ -239,29 +274,37 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
-          <StatsCard key={s.title} {...s} />
-        ))}
-      </div>
+      {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
-      <MonthlyReportSection
-        cards={monthlyReportCards}
-        reportColorMap={reportColorMap}
-      />
+      {isLoading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((s) => (
+              <StatsCard key={s.title} {...s} />
+            ))}
+          </div>
 
-      <ExpenseBreakdownSection
-        items={expenseDistribution}
-        colorMap={expenseColorMap}
-      />
+          <MonthlyReportSection
+            cards={monthlyReportCards}
+            reportColorMap={reportColorMap}
+          />
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RecentOrdersSection
-          rows={orderRows}
-          statusClasses={orderStatusColorMap}
-        />
-        <PopularItemsSection items={popularItems} />
-      </div>
+          <ExpenseBreakdownSection
+            items={expenseDistribution}
+            colorMap={expenseColorMap}
+          />
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <RecentOrdersSection
+              rows={orderRows}
+              statusClasses={orderStatusColorMap}
+            />
+            <PopularItemsSection items={popularItems} />
+          </div>
+        </>
+      )}
     </div>
   )
 }

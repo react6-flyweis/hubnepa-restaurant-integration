@@ -2,9 +2,9 @@ import logoFoodMart from "@/assets/logo-food-mart.svg"
 import { Link } from "react-router"
 
 const partnerFooterLinks = [
-  { label: "Privacy", to: "/privacy" },
-  { label: "Terms", to: "/terms" },
-  { label: "Contact", to: "/contact" },
+  { label: "Privacy", to: "/#" },
+  { label: "Terms", to: "/#" },
+  { label: "Contact", to: "/#" },
 ]
 
 export default function Footer() {

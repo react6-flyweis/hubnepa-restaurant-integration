@@ -18,7 +18,7 @@ const ctas: CTA[] = [
   {
     title: "Order Food",
     description: "Browse menus and order delivery.",
-    href: "/order",
+    href: "#",
     buttonLabel: "Order Now",
     icon: ForkKnife,
     bgClass: "bg-orange-600/10",

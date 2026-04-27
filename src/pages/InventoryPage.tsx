@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Plus, RefreshCcw } from "lucide-react"
+import { Plus } from "lucide-react"
 
-import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog"
 import { AddInventoryItemDialog } from "@/components/AddInventoryItemDialog"
 import { AddCookedFoodDialog } from "@/components/AddCookedFoodDialog"
 import type { InventoryItem as StockItem } from "@/components/StockAdjustmentDialog"
@@ -17,6 +16,7 @@ import { KitchenTabs } from "@/components/inventory/KitchenTabs"
 import { KitchenItemTabs } from "@/components/inventory/KitchenItemTabs"
 import { InventoryTable } from "@/components/inventory/InventoryTable"
 import { CookedFoodTable } from "@/components/inventory/CookedFoodTable"
+import { BeverageTabContent } from "@/components/inventory/BeverageTabContent"
 import type {
   InventoryStatus,
   CookedStatus,
@@ -47,54 +47,6 @@ const inventoryStats: InventoryStat[] = [
     key: "alerts",
     title: "Low Stock Alerts",
     value: "3 Items",
-  },
-]
-
-const initialBeverageItems: InventoryItem[] = [
-  {
-    name: "Coca Cola",
-    category: "Soft Drink",
-    currentStock: 150,
-    minThreshold: 50,
-    unitType: "Bottles",
-    supplier: "Beverages Co.",
-    status: "In Stock",
-  },
-  {
-    name: "Orange Juice",
-    category: "Juice",
-    currentStock: 530,
-    minThreshold: 40,
-    unitType: "Liters",
-    supplier: "Fresh Drinks Ltd.",
-    status: "In Stock",
-  },
-  {
-    name: "Mineral Water",
-    category: "Water",
-    currentStock: 200,
-    minThreshold: 100,
-    unitType: "Bottles",
-    supplier: "Pure Water Inc.",
-    status: "In Stock",
-  },
-  {
-    name: "Iced Tea",
-    category: "Tea",
-    currentStock: 10,
-    minThreshold: 30,
-    unitType: "Bottles",
-    supplier: "Tea Masters",
-    status: "Low",
-  },
-  {
-    name: "Coffee Beans",
-    category: "Coffee",
-    currentStock: 0,
-    minThreshold: 20,
-    unitType: "Kg",
-    supplier: "Coffee World",
-    status: "Out of Stock",
   },
 ]
 
@@ -230,19 +182,15 @@ export default function InventoryPage() {
   const [cookedFoods, setCookedFoods] =
     useState<CookedFood[]>(initialCookedFoods)
 
-  const [beverageItems, setBeverageItems] =
-    useState<InventoryItem[]>(initialBeverageItems)
   const [kitchenItemsByType, setKitchenItemsByType] = useState<
     Record<KitchenItemSubTab, InventoryItem[]>
   >(initialKitchenItemsByType)
 
   // determine which items are currently being displayed
   const activeItems =
-    activeTab === "beverage"
-      ? beverageItems
-      : activeKitchenTab === "item"
-        ? kitchenItemsByType[activeKitchenItemTab]
-        : [] // cooked handled separately
+    activeKitchenTab === "item"
+      ? kitchenItemsByType[activeKitchenItemTab]
+      : [] // cooked handled separately
 
   const activeCooked = activeTab === "kitchen" && activeKitchenTab === "cooked"
 
@@ -298,20 +246,6 @@ export default function InventoryPage() {
       </div>
 
       <Card className="mt-6 rounded-2xl border-0 bg-white py-0 shadow-[0_0_0_1px_#E5E7EB]">
-        {/* stock adjustment dialog */}
-        {activeTab !== "kitchen" && (
-          <StockAdjustmentDialog
-            open={isAdjustmentOpen}
-            onClose={() => setIsAdjustmentOpen(false)}
-            items={activeItems}
-            itemLabel={activeTab === "beverage" ? "Beverage" : "Ingredient"}
-            onApply={(values) => {
-              // placeholder for real update logic
-              console.log("adjustment", values)
-            }}
-          />
-        )}
-
         {/* add new item or cooked food depending on the active view */}
         {activeCooked ? (
           <AddCookedFoodDialog
@@ -376,11 +310,6 @@ export default function InventoryPage() {
                 status,
               }
 
-              if (activeTab === "beverage") {
-                setBeverageItems((prev) => [...prev, newItem])
-                return
-              }
-
               setKitchenItemsByType((prev) => ({
                 ...prev,
                 [activeKitchenItemTab]: [
@@ -410,45 +339,45 @@ export default function InventoryPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <p className="text-sm text-slate-500">
-            Total:
-            {activeCooked ? cookedFoods.length : activeItems.length} items
-          </p>
+        {activeTab === "beverage" ? (
+          <BeverageTabContent
+            isAddOpen={isAddOpen}
+            onAddOpenChange={setIsAddOpen}
+            isAdjustmentOpen={isAdjustmentOpen}
+            onAdjustmentOpenChange={setIsAdjustmentOpen}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+              <p className="text-sm text-slate-500">
+                Total:
+                {activeCooked ? cookedFoods.length : activeItems.length} items
+              </p>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            {activeTab !== "kitchen" && (
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-9 rounded-lg border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50"
-                onClick={() => setIsAdjustmentOpen(true)}
-              >
-                <RefreshCcw className="size-4" />
-                Stock Adjustment
-              </Button>
-            )}
-            <Button
-              size="lg"
-              className="h-9 rounded-lg px-3"
-              onClick={() => setIsAddOpen(true)}
-            >
-              <Plus className="size-4" />
-              {addActionLabel}
-            </Button>
-          </div>
-        </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button
+                  size="lg"
+                  className="h-9 rounded-lg px-3"
+                  onClick={() => setIsAddOpen(true)}
+                >
+                  <Plus className="size-4" />
+                  {addActionLabel}
+                </Button>
+              </div>
+            </div>
 
-        <CardContent className="px-0 pb-4 sm:px-2">
-          {activeCooked ? (
-            <CookedFoodTable foods={cookedFoods} />
-          ) : (
-            <InventoryTable
-              items={activeItems}
-              firstColumnLabel={firstColumnLabel}
-            />
-          )}
-        </CardContent>
+            <CardContent className="px-0 pb-4 sm:px-2">
+              {activeCooked ? (
+                <CookedFoodTable foods={cookedFoods} />
+              ) : (
+                <InventoryTable
+                  items={activeItems}
+                  firstColumnLabel={firstColumnLabel}
+                />
+              )}
+            </CardContent>
+          </>
+        )}
       </Card>
     </div>
   )

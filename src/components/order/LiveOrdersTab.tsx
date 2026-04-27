@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   closestCenter,
   DndContext,
@@ -12,6 +12,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core"
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import type { OrderColumnsState, OrderItem } from "./orderTypes"
 import {
@@ -22,6 +23,8 @@ import {
 import { orderColumns, orderStatuses, actionLabelMap } from "./orderConstants"
 import { OrderColumnSection } from "./OrderColumnSection"
 import { OrderCard } from "./OrderCard"
+import { useLiveOrdersQuery } from "@/hooks/useLiveOrdersQuery"
+import type { LiveOrderApiItem } from "@/lib/live-orders-api"
 
 interface LiveOrdersTabProps {
   columns: OrderColumnsState
@@ -30,6 +33,40 @@ interface LiveOrdersTabProps {
 
 export function LiveOrdersTab({ columns, setColumns }: LiveOrdersTabProps) {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
+  const { data, isLoading } = useLiveOrdersQuery()
+
+  useEffect(() => {
+    if (!data?.orders?.length) {
+      return
+    }
+
+    setColumns((previousColumns) => {
+      const nextColumns = {
+        ...previousColumns,
+        new: [...previousColumns.new],
+        cooking: [...previousColumns.cooking],
+        ready: [...previousColumns.ready],
+      }
+
+      const existingIds = new Set(
+        orderStatuses.flatMap((status) => nextColumns[status].map((order) => order.id))
+      )
+
+      for (const apiOrder of data.orders) {
+        const normalized = normalizeApiOrder(apiOrder)
+        if (!normalized || existingIds.has(normalized.id)) {
+          continue
+        }
+
+        const status = resolveOrderStatus(apiOrder.status)
+        normalized.actionLabel = actionLabelMap[status]
+        nextColumns[status].push(normalized)
+        existingIds.add(normalized.id)
+      }
+
+      return nextColumns
+    })
+  }, [data, setColumns])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -161,6 +198,10 @@ export function LiveOrdersTab({ columns, setColumns }: LiveOrdersTabProps) {
     setActiveOrderId(null)
   }
 
+  if (isLoading) {
+    return <LiveOrdersSkeleton />
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -192,5 +233,87 @@ export function LiveOrdersTab({ columns, setColumns }: LiveOrdersTabProps) {
         ) : null}
       </DragOverlay>
     </DndContext>
+  )
+}
+
+function resolveOrderStatus(status?: string): keyof OrderColumnsState {
+  if (!status) {
+    return "new"
+  }
+
+  const normalized = status.toLowerCase()
+  if (normalized === "new" || normalized === "pending") {
+    return "new"
+  }
+
+  if (normalized === "cooking" || normalized === "preparing" || normalized === "in-progress") {
+    return "cooking"
+  }
+
+  if (normalized === "ready" || normalized === "completed") {
+    return "ready"
+  }
+
+  return "new"
+}
+
+function normalizeFulfillmentType(type?: string): OrderItem["fulfillmentType"] {
+  if (!type) {
+    return "Delivery"
+  }
+
+  const normalized = type.toLowerCase()
+  if (normalized === "pickup") {
+    return "Pickup"
+  }
+  if (normalized === "dine-in" || normalized === "dinein") {
+    return "Dine-in"
+  }
+
+  return "Delivery"
+}
+
+function normalizeApiOrder(order: LiveOrderApiItem): OrderItem | null {
+  const id = order.orderId ?? order.id
+  if (!id) {
+    return null
+  }
+
+  const items = Array.isArray(order.items)
+    ? order.items
+    : order.items
+      ? [order.items]
+      : ["No items listed"]
+  const total = order.amount ?? order.total
+  const amount =
+    typeof total === "number" ? `$${total.toFixed(2)}` : total ? String(total) : "$0.00"
+
+  return {
+    id: String(id),
+    age: order.age ?? order.timeAgo ?? "Just now",
+    fulfillmentType: normalizeFulfillmentType(order.fulfillmentType ?? order.orderType),
+    customerName: order.customerName ?? order.customer ?? "Guest",
+    items,
+    amount,
+    actionLabel: "Accept Order",
+  }
+}
+
+function LiveOrdersSkeleton() {
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {orderColumns.map((column) => (
+        <div key={column.key} className="rounded-xl border p-3">
+          <div className="mb-3 flex items-center gap-2">
+            <Skeleton className="h-2 w-2 rounded-full" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="space-y-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

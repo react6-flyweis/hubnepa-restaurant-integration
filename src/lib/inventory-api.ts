@@ -33,7 +33,19 @@ type AddBeverageResponseData = {
   bev: BeverageRecord
 }
 
+type BeverageListPagination = {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
 
+type BeverageListResponseData = {
+  data: BeverageRecord[]
+  pagination: BeverageListPagination
+}
 
 export async function addBeverage(payload: AddBeveragePayload) {
   const response = await api.post<ApiResponse<AddBeverageResponseData>>(
@@ -44,3 +56,16 @@ export async function addBeverage(payload: AddBeveragePayload) {
   return response.data.data.bev
 }
 
+export async function getBeverages(page = 1, limit = 10) {
+  const response = await api.get<ApiResponse<BeverageListResponseData>>(
+    "/restaurant-panel/inventory/beverages",
+    {
+      params: {
+        page,
+        limit,
+      },
+    }
+  )
+
+  return response.data.data
+}

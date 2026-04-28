@@ -1,30 +1,39 @@
 import { useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useQueryClient } from "@tanstack/react-query"
+import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 
+import { useCreateStaffMutation } from "@/hooks/useCreateStaffMutation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Key } from "lucide-react"
 
-// shape used by the dialog; callers can map this into whatever project model makes
-// sense (e.g. StaffMember used on the page)
 export type NewStaff = {
-  name: string
+  fullName: string
   role: string
   email: string
-  employmentType: string
+  phone: string
+  shiftType: string
   startDate: string
 }
 
 const addStaffSchema = z.object({
-  name: z.string().min(1, "Full name is required"),
+  fullName: z.string().min(1, "Full name is required"),
   role: z.string().min(1, "Role is required"),
   email: z.string().email("Invalid email address"),
-  employmentType: z.string().min(1, "Employment type is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  shiftType: z.string().min(1, "Shift type is required"),
   startDate: z.string().min(1, "Start date is required"),
 })
 
@@ -46,20 +55,23 @@ const roles = [
   "Dishwasher",
 ]
 
-const employmentTypes = ["Full-time", "Part-time", "Contract"]
+const shiftTypes = ["Morning", "Afternoon", "Evening", "Night"]
 
 export function AddStaffDialog({
   open,
   onClose,
   onSubmit,
 }: AddStaffDialogProps) {
+  const queryClient = useQueryClient()
+  const createStaffMutation = useCreateStaffMutation()
   const form = useForm<AddStaffValues>({
     resolver: zodResolver(addStaffSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       role: "",
       email: "",
-      employmentType: "",
+      phone: "",
+      shiftType: "",
       startDate: "",
     },
   })
@@ -67,27 +79,33 @@ export function AddStaffDialog({
   useEffect(() => {
     if (open) {
       form.reset({
-        name: "",
+        fullName: "",
         role: "",
         email: "",
-        employmentType: "",
+        phone: "",
+        shiftType: "",
         startDate: "",
       })
     }
   }, [open, form])
 
   function handleSubmit(values: AddStaffValues) {
-    if (onSubmit) {
-      onSubmit(values)
-    }
-    onClose()
+    createStaffMutation.mutate(values, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: ["staff"],
+        })
+        onSubmit?.(values)
+        onClose()
+      },
+    })
   }
 
   if (!open) return null
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="w-full max-w-md p-6">
+      <DialogContent className="w-full sm:max-w-2xl p-6">
         <h2 className="text-lg font-medium text-slate-900">
           Add New Staff Member
         </h2>
@@ -102,36 +120,40 @@ export function AddStaffDialog({
           noValidate
         >
           <div>
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="fullName">Full Name</Label>
             <Input
-              id="name"
+              id="fullName"
               placeholder="e.g. John Doe"
               className="mt-1"
-              {...form.register("name")}
+              {...form.register("fullName")}
             />
-            {form.formState.errors.name && (
+            {form.formState.errors.fullName && (
               <p className="mt-1 text-xs text-red-600">
-                {form.formState.errors.name.message}
+                {form.formState.errors.fullName.message}
               </p>
             )}
           </div>
 
           <div>
             <Label htmlFor="role">Role</Label>
-            <select
-              id="role"
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-              {...form.register("role")}
-            >
-              <option value="" disabled>
-                select role
-              </option>
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="role"
+              control={form.control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="role" className="mt-1 w-full">
+                    <SelectValue placeholder="select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {form.formState.errors.role && (
               <p className="mt-1 text-xs text-red-600">
                 {form.formState.errors.role.message}
@@ -157,24 +179,44 @@ export function AddStaffDialog({
 
           <div className="flex gap-4">
             <div className="flex-1">
-              <Label htmlFor="employmentType">Employment Type</Label>
-              <select
-                id="employmentType"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                {...form.register("employmentType")}
-              >
-                <option value="" disabled>
-                  select type
-                </option>
-                {employmentTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              {form.formState.errors.employmentType && (
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+12125550099"
+                className="mt-1"
+                {...form.register("phone")}
+              />
+              {form.formState.errors.phone && (
                 <p className="mt-1 text-xs text-red-600">
-                  {form.formState.errors.employmentType.message}
+                  {form.formState.errors.phone.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex-1">
+              <Label htmlFor="shiftType">Shift Type</Label>
+              <Controller
+                name="shiftType"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="shiftType" className="mt-1 w-full">
+                      <SelectValue placeholder="select shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shiftTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.shiftType && (
+                <p className="mt-1 text-xs text-red-600">
+                  {form.formState.errors.shiftType.message}
                 </p>
               )}
             </div>
@@ -206,8 +248,12 @@ export function AddStaffDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-emerald-600">
-              Create Account
+            <Button
+              type="submit"
+              className="bg-emerald-600"
+              disabled={createStaffMutation.isPending}
+            >
+              {createStaffMutation.isPending ? "Creating..." : "Create Account"}
             </Button>
           </div>
         </form>

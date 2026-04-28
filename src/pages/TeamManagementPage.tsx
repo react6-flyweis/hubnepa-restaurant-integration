@@ -5,22 +5,18 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
-  Filter,
-  Key,
   MessageSquare,
-  Search,
   UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/ui/page-header"
-import { AddStaffDialog, type NewStaff } from "@/components/AddStaffDialog"
+import { AddStaffDialog } from "@/components/AddStaffDialog"
+import { StaffDirectoryTab } from "@/components/team/StaffDirectoryTab"
 import {
   Table,
   TableBody,
@@ -32,24 +28,11 @@ import {
 import { cn } from "@/lib/utils"
 
 type TeamTab = "directory" | "schedule" | "requests" | "payroll"
-type StaffStatus = "Active" | "Training"
 
 type TeamTabItem = {
   key: TeamTab
   label: string
   icon: LucideIcon
-}
-
-type StaffMember = {
-  id: string
-  name: string
-  employmentType: string
-  role: string
-  status: StaffStatus
-  branch: string
-  hiredDate: string
-  loginCode: string
-  avatarUrl: string
 }
 
 const teamTabs: TeamTabItem[] = [
@@ -58,11 +41,6 @@ const teamTabs: TeamTabItem[] = [
   { key: "requests", label: "Requests", icon: MessageSquare },
   { key: "payroll", label: "Payroll", icon: DollarSign },
 ]
-
-const statusColorMap: Record<StaffStatus, string> = {
-  Active: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Training: "border-amber-200 bg-amber-50 text-amber-700",
-}
 
 // schedule-related types and sample data
 
@@ -209,70 +187,6 @@ const samplePayroll: PayrollEntry[] = [
   },
 ]
 
-// initial sample data used to seed the page state; kept outside the component so
-// that our state hook can be reset if needed.
-const initialStaffMembers: StaffMember[] = [
-  {
-    id: "staff-001",
-    name: "Sarah Jenkins",
-    employmentType: "Full-time",
-    role: "Manager",
-    status: "Active",
-    branch: "Downtown HQ",
-    hiredDate: "2023-01-15",
-    loginCode: "8821",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80",
-  },
-  {
-    id: "staff-002",
-    name: "Michael Chen",
-    employmentType: "Full-time",
-    role: "Head Chef",
-    status: "Active",
-    branch: "Downtown HQ",
-    hiredDate: "2023-02-01",
-    loginCode: "9932",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80",
-  },
-  {
-    id: "staff-003",
-    name: "Jessica Wu",
-    employmentType: "Part-time",
-    role: "Chef",
-    status: "Training",
-    branch: "Downtown HQ",
-    hiredDate: "2023-11-20",
-    loginCode: "7741",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80",
-  },
-  {
-    id: "staff-004",
-    name: "David Wilson",
-    employmentType: "Part-time",
-    role: "Front Staff",
-    status: "Active",
-    branch: "Downtown HQ",
-    hiredDate: "2023-06-10",
-    loginCode: "6652",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=96&q=80",
-  },
-  {
-    id: "staff-005",
-    name: "Emma Thompson",
-    employmentType: "Full-time",
-    role: "Front Staff",
-    status: "Active",
-    branch: "Downtown HQ",
-    hiredDate: "2023-03-12",
-    loginCode: "5519",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=96&q=80",
-  },
-]
 
 function TeamTabButton({
   item,
@@ -505,166 +419,6 @@ function PayrollTab({ payroll }: { payroll: PayrollEntry[] }) {
   )
 }
 
-function StaffDirectoryTab({ staff }: { staff: StaffMember[] }) {
-  const [searchQuery, setSearchQuery] = useState("")
-
-  const filteredStaff = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
-
-    if (!normalizedQuery) {
-      return staff
-    }
-
-    return staff.filter((member) =>
-      [
-        member.name,
-        member.role,
-        member.employmentType,
-        member.branch,
-        member.status,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery)
-    )
-  }, [searchQuery, staff])
-
-  return (
-    <Card className="mt-6 border border-slate-200/80 bg-white py-0 shadow-sm">
-      <CardContent className="px-0">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search staff by name or role..."
-              className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-sm text-slate-700 shadow-none placeholder:text-slate-400"
-            />
-          </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-10 shrink-0 justify-start text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          >
-            <Filter className="size-4" />
-            Filter
-          </Button>
-        </div>
-
-        <Table className="min-w-[900px]">
-          <TableHeader>
-            <TableRow className="border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
-              <TableHead className="px-5 py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Name
-              </TableHead>
-              <TableHead className="py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Role
-              </TableHead>
-              <TableHead className="py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Status
-              </TableHead>
-              <TableHead className="py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Branch
-              </TableHead>
-              <TableHead className="py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Hired Date
-              </TableHead>
-              <TableHead className="py-4 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Login Code
-              </TableHead>
-              <TableHead className="py-4 pr-5 text-xs font-semibold tracking-[0.12em] text-slate-400 uppercase">
-                Access
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {filteredStaff.map((member) => (
-              <TableRow key={member.id} className="border-slate-100">
-                <TableCell className="px-5 py-5 align-middle whitespace-normal">
-                  <div className="flex items-center gap-3">
-                    <Avatar size="lg" className="ring-1 ring-slate-200/80">
-                      <AvatarImage src={member.avatarUrl} alt={member.name} />
-                      <AvatarFallback>
-                        {member.name
-                          .split(" ")
-                          .map((part) => part[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div>
-                      <p className="text-[15px] leading-tight font-semibold text-slate-800">
-                        {member.name}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {member.employmentType}
-                      </p>
-                    </div>
-                  </div>
-                </TableCell>
-
-                <TableCell className="py-5 whitespace-normal">
-                  <Badge
-                    variant="outline"
-                    className="h-8 rounded-full border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600"
-                  >
-                    {member.role}
-                  </Badge>
-                </TableCell>
-
-                <TableCell className="py-5">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "h-7 rounded-full px-3 text-[13px] font-semibold",
-                      statusColorMap[member.status]
-                    )}
-                  >
-                    {member.status}
-                  </Badge>
-                </TableCell>
-
-                <TableCell className="py-5 text-[15px] whitespace-normal text-slate-500">
-                  {member.branch}
-                </TableCell>
-
-                <TableCell className="py-5 text-[15px] text-slate-500">
-                  {member.hiredDate}
-                </TableCell>
-
-                <TableCell className="py-5">
-                  <Badge
-                    variant="secondary"
-                    className="h-8 rounded-lg bg-slate-100 px-3 text-[13px] font-semibold text-slate-500"
-                  >
-                    {member.loginCode}
-                  </Badge>
-                </TableCell>
-
-                <TableCell className="py-5 pr-5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                    aria-label={`Manage access for ${member.name}`}
-                  >
-                    <Key className="size-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
 function TeamPlaceholder({ label }: { label: string }) {
   return (
     <Card className="mt-6 border border-dashed border-slate-200 bg-white shadow-sm">
@@ -685,29 +439,9 @@ function TeamPlaceholder({ label }: { label: string }) {
 
 export default function TeamManagementPage() {
   const [activeTab, setActiveTab] = useState<TeamTab>("directory")
-  const [staff, setStaff] = useState<StaffMember[]>(initialStaffMembers)
   const [isAddDialogOpen, setAddDialogOpen] = useState(false)
 
   const activeTabLabel = teamTabs.find((item) => item.key === activeTab)?.label
-
-  function handleNewStaff(values: NewStaff) {
-    setStaff((prev) => {
-      const nextId = `staff-${prev.length + 1}`
-      const randomCode = Math.floor(1000 + Math.random() * 9000).toString()
-      const newMember: StaffMember = {
-        id: nextId,
-        name: values.name,
-        employmentType: values.employmentType,
-        role: values.role,
-        status: "Active",
-        branch: "Downtown HQ",
-        hiredDate: values.startDate,
-        loginCode: randomCode,
-        avatarUrl: "", // could be filled later
-      }
-      return [...prev, newMember]
-    })
-  }
 
   return (
     <div className="p-6">
@@ -751,7 +485,7 @@ export default function TeamManagementPage() {
       </div>
 
       {activeTab === "directory" ? (
-        <StaffDirectoryTab staff={staff} />
+        <StaffDirectoryTab />
       ) : activeTab === "schedule" ? (
         <ScheduleTab schedule={scheduleSample} />
       ) : activeTab === "requests" ? (
@@ -766,7 +500,6 @@ export default function TeamManagementPage() {
       <AddStaffDialog
         open={isAddDialogOpen}
         onClose={() => setAddDialogOpen(false)}
-        onSubmit={handleNewStaff}
       />
     </div>
   )

@@ -226,9 +226,6 @@ export default function ExpensesPage() {
     { key: "maintenance", label: "Maintenance Logs" },
   ]
 
-  // filtered records for each view
-  const payrollRecords = records.filter((r) => r.type === "payroll")
-
   function handleAddExpense(values: NewExpense) {
     const dateObj = new Date(values.date)
     const formattedMonth = dateObj.toLocaleDateString("en-US", {
@@ -329,7 +326,6 @@ export default function ExpensesPage() {
         />
       ) : activeView === "payroll" ? (
         <PayrollTab
-          records={payrollRecords}
           searchQuery={filterQuery}
           onViewInvoice={(record) => {
             setSelectedRecord(record)

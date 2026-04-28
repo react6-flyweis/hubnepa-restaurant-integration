@@ -3,21 +3,25 @@ import { CircleCheck, Clock3, type LucideIcon, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { extractErrorMessage } from "@/lib/error-handler"
 import { cn } from "@/lib/utils"
+import { useMaintenanceLogsQuery } from "@/hooks/useMaintenanceLogsQuery"
+import { useResolveMaintenanceIssueMutation } from "@/hooks/useResolveMaintenanceIssueMutation"
 
 type MaintenancePriority = "High" | "Medium" | "Low"
 type MaintenanceStatus = "Resolved" | "Scheduled" | "In Progress"
 
-interface MaintenanceLog {
-  id: string
-  title: string
-  summary: string
-  vendor: string
-  cost: number
-  dateReported: string
-  priority: MaintenancePriority
-  status: MaintenanceStatus
-}
+// interface MaintenanceLog {
+//   id: string
+//   title: string
+//   summary: string
+//   vendor: string
+//   cost: number
+//   dateReported: string
+//   priority: MaintenancePriority
+//   status: MaintenanceStatus
+// }
 
 interface MaintenanceLogsTabProps {
   searchQuery?: string
@@ -29,56 +33,13 @@ interface StatusMeta {
   iconClassName: string
 }
 
-const maintenanceLogs: MaintenanceLog[] = [
-  {
-    id: "maint-001",
-    title: "Walk-in Freezer",
-    summary: "Temperature fluctuation",
-    vendor: "CoolTech Services",
-    cost: 150,
-    dateReported: "2026-02-02",
-    priority: "High",
-    status: "Resolved",
-  },
-  {
-    id: "maint-002",
-    title: "Espresso Machine",
-    summary: "Steam wand leak",
-    vendor: "BaristaFix",
-    cost: 85,
-    dateReported: "2026-01-28",
-    priority: "Medium",
-    status: "Resolved",
-  },
-  {
-    id: "maint-003",
-    title: "HVAC System",
-    summary: "Filter replacement",
-    vendor: "AirMasters",
-    cost: 200,
-    dateReported: "2026-01-15",
-    priority: "Low",
-    status: "Scheduled",
-  },
-  {
-    id: "maint-004",
-    title: "Dishwasher",
-    summary: "Drainage blockage",
-    vendor: "QuickPlumb",
-    cost: 0,
-    dateReported: "2026-02-05",
-    priority: "High",
-    status: "In Progress",
-  },
-]
-
 const priorityClassMap: Record<MaintenancePriority, string> = {
   High: "border-transparent bg-red-50 text-red-600",
   Medium: "border-transparent bg-amber-50 text-amber-600",
   Low: "border-transparent bg-blue-50 text-blue-600",
 }
 
-const statusMetaMap: Record<MaintenanceStatus, StatusMeta> = {
+const statusMetaMap: Record<string, StatusMeta> = {
   Resolved: {
     icon: CircleCheck,
     textClassName: "text-emerald-600",
@@ -96,9 +57,45 @@ const statusMetaMap: Record<MaintenanceStatus, StatusMeta> = {
   },
 }
 
+function normalizePriority(value: string): MaintenancePriority {
+  const normalized = value.toLowerCase()
+
+  if (normalized.includes("high")) {
+    return "High"
+  }
+
+  if (normalized.includes("medium")) {
+    return "Medium"
+  }
+
+  if (normalized.includes("low")) {
+    return "Low"
+  }
+
+  return "Medium"
+}
+
 export function MaintenanceLogsTab({
   searchQuery = "",
 }: MaintenanceLogsTabProps) {
+  const { data, isLoading, error } = useMaintenanceLogsQuery()
+  const resolveMaintenanceIssueMutation = useResolveMaintenanceIssueMutation()
+  const errorMessage = error
+    ? extractErrorMessage(error, "Unable to load maintenance logs.")
+    : null
+
+  const maintenanceLogs =
+    data?.data.map((item) => ({
+      id: item._id,
+      title: item.itemName,
+      summary: item.issue,
+      vendor: item.restaurant,
+      cost: item.cost,
+      dateReported: item.dateReported,
+      priority: normalizePriority(item.priority),
+      status: item.status as MaintenanceStatus,
+    })) ?? []
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
   const visibleLogs = maintenanceLogs.filter((log) => {
@@ -118,6 +115,47 @@ export function MaintenanceLogsTab({
     )
   })
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-semibold text-slate-900">
+            Maintenance & Repairs
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {[1, 2].map((item) => (
+            <Card key={item} className="border-slate-200">
+              <CardContent>
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-2/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <Card className="mt-4 border-slate-200 shadow-none">
+        <CardContent className="py-12 text-center text-sm text-slate-500">
+          {errorMessage}
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
@@ -136,7 +174,11 @@ export function MaintenanceLogsTab({
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         {visibleLogs.map((log) => {
-          const statusMeta = statusMetaMap[log.status]
+          const statusMeta = statusMetaMap[log.status] ?? {
+            icon: null,
+            textClassName: "text-slate-600",
+            iconClassName: "text-slate-500",
+          }
           const StatusIcon = statusMeta.icon
           const isResolved = log.status === "Resolved"
 
@@ -210,6 +252,12 @@ export function MaintenanceLogsTab({
                     <Button
                       size="sm"
                       className="h-8 flex-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() =>
+                        resolveMaintenanceIssueMutation.mutate(log.id)
+                      }
+                      disabled={
+                        resolveMaintenanceIssueMutation.status === "pending"
+                      }
                     >
                       Mark Resolved
                     </Button>

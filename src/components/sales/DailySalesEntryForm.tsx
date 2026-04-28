@@ -15,7 +15,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useCreateSalesEntryMutation } from "@/hooks/useCreateSalesEntryMutation"
-import { cn, formatCurrency } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 import type { CreateSalesEntryPayload } from "@/lib/sales-api"
 
 const salesEntrySchema = z.object({
@@ -227,9 +227,9 @@ export function DailySalesEntryForm({
               type="submit"
               size="lg"
               className="h-11 rounded-xl px-5 text-sm font-semibold shadow-sm"
-              disabled={createSalesEntryMutation.isLoading}
+              disabled={createSalesEntryMutation.isPending}
             >
-              {createSalesEntryMutation.isLoading
+              {createSalesEntryMutation.isPending
                 ? "Saving..."
                 : "Save Daily Report"}
             </Button>

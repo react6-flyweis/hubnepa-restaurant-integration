@@ -18,7 +18,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { extractErrorMessage } from "@/lib/error-handler"
 import { cn } from "@/lib/utils"
+import { usePayrollQuery } from "@/hooks/usePayrollQuery"
 
 import type {
   ExpenseRecord,
@@ -27,7 +30,6 @@ import type {
 } from "@/types/expenses"
 
 interface PayrollTabProps {
-  records: ExpenseRecord[]
   searchQuery?: string
   onViewInvoice: (record: ExpenseRecord) => void
 }
@@ -45,10 +47,32 @@ const avatarColorMap: Record<ExpenseRecordType, string> = {
   //   summary: "bg-blue-50 text-blue-600",
 }
 
-export function PayrollTab({ records, searchQuery = "" }: PayrollTabProps) {
+export function PayrollTab({
+  searchQuery = "",
+  onViewInvoice,
+}: PayrollTabProps) {
+  const { data, isLoading, error } = usePayrollQuery()
+  const errorMessage = error
+    ? extractErrorMessage(error, "Unable to load payroll records.")
+    : null
+
+  const payrollRecords =
+    data?.data.map((record) => ({
+      id: record._id,
+      type: "payroll" as const,
+      name: record.staff.fullName,
+      subtitle: "Payroll",
+      detail: record.staff.role,
+      date: record.createdAt,
+      month: record.month,
+      amount: record.totalPay || record.baseSalary || 0,
+      status: record.status as ExpenseStatus,
+      actionLabel: "Payslip",
+    })) ?? []
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
-  const visibleRecords = records.filter((record) => {
+  const visibleRecords = payrollRecords.filter((record) => {
     return (
       normalizedQuery.length === 0 ||
       [record.name, record.subtitle, record.detail, record.month, record.status]
@@ -57,6 +81,46 @@ export function PayrollTab({ records, searchQuery = "" }: PayrollTabProps) {
         .includes(normalizedQuery)
     )
   })
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-slate-900">
+            Payroll Management
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50"
+          >
+            <Download className="size-4" />
+            <span className="ml-2">Payroll Summary</span>
+          </Button>
+        </div>
+        <Card className="mt-4 p-0">
+          <CardContent className="px-0">
+            <div className="space-y-3 p-6">
+              <Skeleton className="h-4 w-1/3" />
+              {[...Array(4)].map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full rounded-xl" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <Card className="mt-4 border-slate-200 shadow-none">
+        <CardContent className="py-12 text-center text-sm text-slate-500">
+          {errorMessage}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <>
@@ -151,18 +215,16 @@ export function PayrollTab({ records, searchQuery = "" }: PayrollTabProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                           <DropdownMenuItem
+                            onClick={() => onViewInvoice(record)}
+                          >
+                            View Payslip
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() =>
                               console.log("edit salary", record.id)
                             }
                           >
                             Edit Salary
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              console.log("view profile", record.id)
-                            }
-                          >
-                            View Profile
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -177,7 +239,7 @@ export function PayrollTab({ records, searchQuery = "" }: PayrollTabProps) {
                     colSpan={6}
                     className="px-6 py-12 text-center text-sm text-slate-500"
                   >
-                    No expense records match the current filters.
+                    No payroll records match the current filters.
                   </TableCell>
                 </TableRow>
               ) : null}

@@ -41,3 +41,20 @@ export async function getMaintenanceLogs(): Promise<MaintenanceLogsApiData> {
 
   return response.data.data
 }
+
+export type ResolveMaintenanceIssueApiData = {
+  issue: MaintenanceApiItem
+}
+
+export async function resolveMaintenanceIssue(
+  issueId: string
+): Promise<MaintenanceApiItem> {
+  const response = await api.patch<ApiResponse<ResolveMaintenanceIssueApiData>>(
+    `/restaurant-panel/expenses/maintenance/${issueId}`,
+    {
+      status: "Resolved",
+    }
+  )
+
+  return response.data.data.issue
+}

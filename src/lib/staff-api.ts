@@ -59,6 +59,15 @@ export type StaffListResult = {
   pagination: StaffPagination
 }
 
+export type CreateStaffPayload = {
+  fullName: string
+  role: string
+  email: string
+  phone: string
+  shiftType: string
+  startDate: string
+}
+
 function mapStaffMember(member: StaffApiItem): StaffMember {
   return {
     id: member._id,
@@ -87,4 +96,15 @@ export async function getStaff(page = 1, limit = 10): Promise<StaffListResult> {
     staff: response.data.data.data.map(mapStaffMember),
     pagination: response.data.data.pagination,
   }
+}
+
+export async function createStaff(
+  payload: CreateStaffPayload
+): Promise<StaffMember> {
+  const response = await api.post<ApiResponse<StaffApiItem>>(
+    "/restaurant-panel/staff",
+    payload
+  )
+
+  return mapStaffMember(response.data.data)
 }

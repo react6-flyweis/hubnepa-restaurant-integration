@@ -1,6 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod"
 import {
-  CalendarDays,
   CheckCircle2,
   Download,
   EllipsisVertical,
@@ -8,9 +6,7 @@ import {
   TriangleAlert,
 } from "lucide-react"
 import { useState } from "react"
-import { type UseFormReturn, useForm } from "react-hook-form"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import { z } from "zod"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,8 +26,6 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -40,73 +34,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DailySalesEntryForm,
+  type SalesBreakdown,
+  type SalesPlatformFieldName,
+  type SalesRecord,
+  salesFieldConfigs,
+  inHouseFieldNames,
+  deliveryFieldNames,
+} from "@/components/sales/DailySalesEntryForm"
 import { cn, formatCurrency } from "@/lib/utils"
-
-const salesEntrySchema = z.object({
-  reportingDate: z.string().min(1, "Select a reporting date"),
-  inHouseDineIn: z.number().min(0, "Enter 0 or greater"),
-  inHouseTakeOut: z.number().min(0, "Enter 0 or greater"),
-  event: z.number().min(0, "Enter 0 or greater"),
-  catering: z.number().min(0, "Enter 0 or greater"),
-  uberEats: z.number().min(0, "Enter 0 or greater"),
-  deliveroo: z.number().min(0, "Enter 0 or greater"),
-  grubHub: z.number().min(0, "Enter 0 or greater"),
-  justEat: z.number().min(0, "Enter 0 or greater"),
-  instaCart: z.number().min(0, "Enter 0 or greater"),
-  doorDash: z.number().min(0, "Enter 0 or greater"),
-  ezeCater: z.number().min(0, "Enter 0 or greater"),
-  other: z.number().min(0, "Enter 0 or greater"),
-})
-
-type SalesEntryFormValues = z.infer<typeof salesEntrySchema>
-type SalesPlatformFieldName = Exclude<
-  keyof SalesEntryFormValues,
-  "reportingDate"
->
-type SalesStatus = "Verified" | "Pending Review"
-type SalesBreakdown = Record<SalesPlatformFieldName, number>
-type SalesCategory = "inHouse" | "delivery"
-
-type SalesFieldConfig = {
-  label: string
-  name: SalesPlatformFieldName
-  category: SalesCategory
-}
-
-type SalesRecord = {
-  date: string
-  status: SalesStatus
-  platforms: SalesBreakdown
-}
 
 type SalesTrendPoint = {
   day: string
   inHouse: number
   delivery: number
 }
-
-const salesFieldConfigs: SalesFieldConfig[] = [
-  { label: "In House Dine-In", name: "inHouseDineIn", category: "inHouse" },
-  { label: "In House Take Out", name: "inHouseTakeOut", category: "inHouse" },
-  { label: "Event", name: "event", category: "inHouse" },
-  { label: "Catering", name: "catering", category: "inHouse" },
-  { label: "Uber Eats", name: "uberEats", category: "delivery" },
-  { label: "Deliveroo", name: "deliveroo", category: "delivery" },
-  { label: "GrubHub", name: "grubHub", category: "delivery" },
-  { label: "JustEat", name: "justEat", category: "delivery" },
-  { label: "InstaCart", name: "instaCart", category: "delivery" },
-  { label: "DoorDash", name: "doorDash", category: "delivery" },
-  { label: "EzeCater", name: "ezeCater", category: "delivery" },
-  { label: "Other", name: "other", category: "delivery" },
-]
-
-const inHouseFieldNames = salesFieldConfigs
-  .filter((field) => field.category === "inHouse")
-  .map((field) => field.name)
-
-const deliveryFieldNames = salesFieldConfigs
-  .filter((field) => field.category === "delivery")
-  .map((field) => field.name)
 
 const salesTrendConfig = {
   inHouse: {
@@ -119,7 +62,7 @@ const salesTrendConfig = {
   },
 } satisfies ChartConfig
 
-const statusColorMap: Record<SalesStatus, string> = {
+const statusColorMap: Record<"Verified" | "Pending Review", string> = {
   Verified: "border-emerald-200 bg-emerald-50 text-emerald-700",
   "Pending Review": "border-amber-200 bg-amber-50 text-amber-700",
 }
@@ -215,68 +158,16 @@ const initialSalesRecords: SalesRecord[] = sortSalesRecords([
   }),
 ])
 
-function SalesAmountField({
-  field,
-  values,
-}: {
-  field: SalesFieldConfig
-  values: UseFormReturn<SalesEntryFormValues>
-}) {
-  const error = values.formState.errors[field.name]?.message
-
-  return (
-    <Field className="gap-2">
-      <FieldLabel
-        htmlFor={field.name}
-        className="text-[15px] font-medium text-slate-600"
-      >
-        {field.label}
-      </FieldLabel>
-
-      <Input
-        id={field.name}
-        type="number"
-        min="0"
-        step="0.01"
-        inputMode="decimal"
-        aria-invalid={Boolean(error)}
-        className="h-11 rounded-[14px] border-slate-200 bg-[#F8FAFC] px-4 text-base text-slate-700 shadow-none"
-        {...values.register(field.name, {
-          setValueAs: (value) => {
-            if (value === "" || value == null) {
-              return 0
-            }
-
-            return Number(value)
-          },
-        })}
-      />
-
-      {typeof error === "string" ? (
-        <FieldError className="text-xs">{error}</FieldError>
-      ) : null}
-    </Field>
-  )
-}
-
 export default function SalesPage() {
   const [salesRecords, setSalesRecords] = useState(initialSalesRecords)
+  const [reportingDate, setReportingDate] = useState("2026-03-12")
 
-  const values = useForm<SalesEntryFormValues>({
-    resolver: zodResolver(salesEntrySchema),
-    defaultValues: createBlankSalesValues("2026-03-12"),
-  })
-
-  const watchedValues = values.watch()
   const recentEntries = salesRecords.slice(0, 3)
   const previousEntries = salesRecords.slice(3, 6)
   const missingDates = getMissingEntryDates(salesRecords)
   const primaryMissingDate = missingDates[0]
   const trendData = buildTrendData(recentEntries)
   const trendTicks = buildTrendTicks(trendData)
-  const currentInHouseTotal = sumFields(watchedValues, inHouseFieldNames)
-  const currentDeliveryTotal = sumFields(watchedValues, deliveryFieldNames)
-  const currentTotal = currentInHouseTotal + currentDeliveryTotal
   const weeklyTotal = recentEntries.reduce(
     (total, record) => total + getTotalSales(record.platforms),
     0
@@ -291,21 +182,14 @@ export default function SalesPage() {
       : 0
   const topPlatformSummary = getTopPlatformSummary(recentEntries)
 
-  function onSubmit(data: SalesEntryFormValues) {
-    const nextRecord = createSalesRecord(
-      data.reportingDate,
-      extractPlatforms(data)
-    )
-
+  function handleSavedEntry(record: SalesRecord) {
     setSalesRecords((currentRecords) => {
       const otherRecords = currentRecords.filter(
-        (record) => record.date !== data.reportingDate
+        (existing) => existing.date !== record.date
       )
 
-      return sortSalesRecords([nextRecord, ...otherRecords])
+      return sortSalesRecords([record, ...otherRecords])
     })
-
-    values.reset(createBlankSalesValues(data.reportingDate))
   }
 
   function handleExportReport() {
@@ -354,8 +238,7 @@ export default function SalesPage() {
       return
     }
 
-    values.setValue("reportingDate", primaryMissingDate, { shouldDirty: true })
-    values.setFocus("reportingDate")
+    setReportingDate(primaryMissingDate)
   }
 
   return (
@@ -378,77 +261,10 @@ export default function SalesPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="py-0 xl:row-start-1">
-          <CardHeader className="gap-4 border-b px-6 py-5 md:grid-cols-[1fr_180px] md:items-start">
-            <div>
-              <CardTitle className="font-display text-[1.65rem] leading-none text-slate-900">
-                Daily Sales Entry
-              </CardTitle>
-              <CardDescription className="mt-2 max-w-sm text-[15px] leading-6 text-slate-500">
-                Enter end-of-day sales figures for each platform.
-              </CardDescription>
-            </div>
-
-            <Field className="gap-2">
-              <FieldLabel htmlFor="reportingDate" className="sr-only">
-                Reporting Date
-              </FieldLabel>
-
-              <div className="flex items-center gap-3">
-                <CalendarDays className="size-6 text-slate-400" />
-                <Input
-                  id="reportingDate"
-                  type="date"
-                  aria-invalid={Boolean(values.formState.errors.reportingDate)}
-                  className="h-10 border-slate-200 bg-[#F8FAFC] text-sm text-slate-700 shadow-none"
-                  {...values.register("reportingDate")}
-                />
-              </div>
-
-              {typeof values.formState.errors.reportingDate?.message ===
-              "string" ? (
-                <FieldError className="text-xs">
-                  {values.formState.errors.reportingDate.message}
-                </FieldError>
-              ) : null}
-            </Field>
-          </CardHeader>
-
-          <CardContent className="px-6 py-6">
-            <form onSubmit={values.handleSubmit(onSubmit)} noValidate>
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {salesFieldConfigs.map((field) => (
-                  <SalesAmountField
-                    key={field.name}
-                    field={field}
-                    values={values}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-6 flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">Total Daily Revenue</p>
-                  <p className="mt-1 text-[2rem] leading-none font-semibold tracking-[-0.02em] text-slate-900">
-                    {formatCurrency(currentTotal)}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    In-house {formatCurrency(currentInHouseTotal)} • Delivery
-                    apps {formatCurrency(currentDeliveryTotal)}
-                  </p>
-                </div>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="h-11 rounded-xl px-5 text-sm font-semibold shadow-sm"
-                >
-                  Save Daily Report
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <DailySalesEntryForm
+          defaultDate={reportingDate}
+          onSaved={handleSavedEntry}
+        />
 
         <div className="space-y-6 xl:col-start-2 xl:row-span-2">
           <Card className="py-0">
@@ -692,24 +508,6 @@ export default function SalesPage() {
   )
 }
 
-function createBlankSalesValues(reportingDate: string): SalesEntryFormValues {
-  return {
-    reportingDate,
-    inHouseDineIn: 0,
-    inHouseTakeOut: 0,
-    event: 0,
-    catering: 0,
-    uberEats: 0,
-    deliveroo: 0,
-    grubHub: 0,
-    justEat: 0,
-    instaCart: 0,
-    doorDash: 0,
-    ezeCater: 0,
-    other: 0,
-  }
-}
-
 function createSalesRecord(
   date: string,
   platforms: SalesBreakdown
@@ -724,35 +522,8 @@ function createSalesRecord(
   }
 }
 
-function extractPlatforms(values: SalesEntryFormValues): SalesBreakdown {
-  return {
-    inHouseDineIn: values.inHouseDineIn,
-    inHouseTakeOut: values.inHouseTakeOut,
-    event: values.event,
-    catering: values.catering,
-    uberEats: values.uberEats,
-    deliveroo: values.deliveroo,
-    grubHub: values.grubHub,
-    justEat: values.justEat,
-    instaCart: values.instaCart,
-    doorDash: values.doorDash,
-    ezeCater: values.ezeCater,
-    other: values.other,
-  }
-}
-
 function sortSalesRecords(records: SalesRecord[]) {
   return [...records].sort((left, right) => right.date.localeCompare(left.date))
-}
-
-function sumFields(
-  values: Partial<SalesEntryFormValues>,
-  fieldNames: SalesPlatformFieldName[]
-) {
-  return fieldNames.reduce(
-    (total, fieldName) => total + Number(values[fieldName] ?? 0),
-    0
-  )
 }
 
 function getInHouseTotal(platforms: SalesBreakdown) {

@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Plus } from "lucide-react"
 
 import { AddInventoryItemDialog } from "@/components/AddInventoryItemDialog"
 import { AddCookedFoodDialog } from "@/components/AddCookedFoodDialog"
 import type { InventoryItem as StockItem } from "@/components/StockAdjustmentDialog"
+import { useKitchenItemsQuery } from "@/hooks/useKitchenItemsQuery"
 
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
@@ -18,7 +19,6 @@ import { InventoryTable } from "@/components/inventory/InventoryTable"
 import { CookedFoodTable } from "@/components/inventory/CookedFoodTable"
 import { BeverageTabContent } from "@/components/inventory/BeverageTabContent"
 import type {
-  InventoryStatus,
   CookedStatus,
   InventoryTab,
   KitchenSubTab,
@@ -30,113 +30,6 @@ import type {
 // reuse the type exported by the dialog component to keep shapes in sync
 // (StockItem has the identical fields used by this page)
 type InventoryItem = StockItem
-
-// stat data on page
-const inventoryStats: InventoryStat[] = [
-  {
-    key: "recipes",
-    title: "Total Recipes",
-    value: "48",
-  },
-  {
-    key: "value",
-    title: "Inventory Value",
-    value: "$12,450",
-  },
-  {
-    key: "alerts",
-    title: "Low Stock Alerts",
-    value: "3 Items",
-  },
-]
-
-const initialKitchenItemsByType: Record<KitchenItemSubTab, InventoryItem[]> = {
-  raw: [
-    {
-      name: "Tomatoes",
-      category: "Produce",
-      currentStock: 50,
-      minThreshold: 20,
-      unitType: "Kg",
-      supplier: "Fresh Farm",
-      status: "In Stock",
-    },
-    {
-      name: "Chicken Breast",
-      category: "Protein",
-      currentStock: 15,
-      minThreshold: 25,
-      unitType: "Kg",
-      supplier: "Meat Market",
-      status: "Low",
-    },
-    {
-      name: "Rice",
-      category: "Grains",
-      currentStock: 100,
-      minThreshold: 30,
-      unitType: "Kg",
-      supplier: "Grain Co.",
-      status: "In Stock",
-    },
-    {
-      name: "Onions",
-      category: "Produce",
-      currentStock: 0,
-      minThreshold: 15,
-      unitType: "Kg",
-      supplier: "Fresh Farm",
-      status: "Out of Stock",
-    },
-  ],
-  solid: [
-    {
-      name: "Disposable Gloves",
-      category: "Safety",
-      currentStock: 220,
-      minThreshold: 80,
-      unitType: "Pairs",
-      supplier: "SafeWork Supplies",
-      status: "In Stock",
-    },
-    {
-      name: "Aluminum Foil",
-      category: "Packaging",
-      currentStock: 45,
-      minThreshold: 20,
-      unitType: "Rolls",
-      supplier: "Kitchen Pack",
-      status: "In Stock",
-    },
-    {
-      name: "Gas Lighter",
-      category: "Utility",
-      currentStock: 12,
-      minThreshold: 12,
-      unitType: "Pieces",
-      supplier: "Utility Depot",
-      status: "In Stock",
-    },
-    {
-      name: "Dishwashing Liquid",
-      category: "Cleaning",
-      currentStock: 6,
-      minThreshold: 10,
-      unitType: "Liters",
-      supplier: "CleanPro",
-      status: "Low",
-    },
-    {
-      name: "Storage Bins",
-      category: "Storage",
-      currentStock: 0,
-      minThreshold: 4,
-      unitType: "Pieces",
-      supplier: "Warehouse Works",
-      status: "Out of Stock",
-    },
-  ],
-}
 
 // sample data for the "cooked food" view
 const initialCookedFoods: CookedFood[] = [
@@ -182,15 +75,63 @@ export default function InventoryPage() {
   const [cookedFoods, setCookedFoods] =
     useState<CookedFood[]>(initialCookedFoods)
 
-  const [kitchenItemsByType, setKitchenItemsByType] = useState<
-    Record<KitchenItemSubTab, InventoryItem[]>
-  >(initialKitchenItemsByType)
+  const kitchenQuery = useKitchenItemsQuery(1, 20)
+  const kitchenStats = kitchenQuery.data?.stats
+
+  const inventoryStats: InventoryStat[] = [
+    {
+      key: "recipes",
+      title: "Total Recipes",
+      value: "48",
+    },
+    {
+      key: "value",
+      title: "Inventory Value",
+      value: kitchenStats ? `$${kitchenStats.totalValue}` : "$12,450",
+    },
+    {
+      key: "alerts",
+      title: "Low Stock Alerts",
+      value: kitchenStats ? `${kitchenStats.lowStock} Items` : "3 Items",
+    },
+  ]
+
+  const kitchenApiItemsByType = useMemo(() => {
+    const items: Record<KitchenItemSubTab, InventoryItem[]> = {
+      raw: [],
+      solid: [],
+    }
+
+    const fetchedItems = kitchenQuery.data?.data ?? []
+
+    fetchedItems.forEach((item) => {
+      const mappedItem: InventoryItem = {
+        name: item.itemName,
+        category: item.category,
+        currentStock: item.currentStock,
+        minThreshold: item.minThreshold,
+        unitType: item.unitOfMeasure,
+        supplier: "",
+        status: item.status,
+      }
+
+      if (item.itemType?.toLowerCase() === "raw") {
+        items.raw.push(mappedItem)
+      } else if (item.itemType?.toLowerCase() === "solid") {
+        items.solid.push(mappedItem)
+      } else {
+        items.raw.push(mappedItem)
+      }
+    })
+
+    return items
+  }, [kitchenQuery.data?.data])
+
+  const kitchenItemsByType = kitchenApiItemsByType
 
   // determine which items are currently being displayed
   const activeItems =
-    activeKitchenTab === "item"
-      ? kitchenItemsByType[activeKitchenItemTab]
-      : [] // cooked handled separately
+    activeKitchenTab === "item" ? kitchenItemsByType[activeKitchenItemTab] : [] // cooked handled separately
 
   const activeCooked = activeTab === "kitchen" && activeKitchenTab === "cooked"
 
@@ -291,33 +232,6 @@ export default function InventoryPage() {
           <AddInventoryItemDialog
             open={isAddOpen}
             onClose={() => setIsAddOpen(false)}
-            onSubmit={(values) => {
-              // convert form values into the shape used by the page table
-              const status: InventoryStatus =
-                values.initialStock === 0
-                  ? "Out of Stock"
-                  : values.initialStock <= values.lowAlert
-                    ? "Low"
-                    : "In Stock"
-
-              const newItem: InventoryItem = {
-                name: values.name,
-                category: values.category,
-                currentStock: values.initialStock,
-                minThreshold: values.lowAlert,
-                unitType: values.unitType,
-                supplier: "", // no supplier collected in the dialog
-                status,
-              }
-
-              setKitchenItemsByType((prev) => ({
-                ...prev,
-                [activeKitchenItemTab]: [
-                  ...prev[activeKitchenItemTab],
-                  newItem,
-                ],
-              }))
-            }}
           />
         )}
         <InventoryTabs activeTab={activeTab} onChange={setActiveTab} />
@@ -369,6 +283,14 @@ export default function InventoryPage() {
             <CardContent className="px-0 pb-4 sm:px-2">
               {activeCooked ? (
                 <CookedFoodTable foods={cookedFoods} />
+              ) : kitchenQuery.isLoading && activeTab === "kitchen" ? (
+                <div className="px-6 py-8 text-sm text-slate-500">
+                  Loading kitchen inventory...
+                </div>
+              ) : kitchenQuery.isError && activeTab === "kitchen" ? (
+                <div className="px-6 py-8 text-sm text-red-600">
+                  Failed to load kitchen items. Please refresh the page.
+                </div>
               ) : (
                 <InventoryTable
                   items={activeItems}

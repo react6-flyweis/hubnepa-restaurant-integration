@@ -1,67 +1,67 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   DollarSign,
   MapPin,
-  Settings,
   Users,
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { useUpdateNotificationSettingsMutation } from "@/hooks/useUpdateNotificationSettingsMutation"
+import type { UpdateNotificationSettingsPayload } from "@/lib/settings-api"
 
-type NotificationChannel = "email" | "sms"
+type NotificationPreferenceKey =
+  | "newOrders"
+  | "orderUpdates"
+  | "lowInventory"
+  | "financialAlerts"
 
 type NotificationPreferenceItem = {
-  key: string
+  key: NotificationPreferenceKey
   title: string
   description: string
   icon: LucideIcon
-  channels: Record<NotificationChannel, boolean>
+  enabled: boolean
 }
 
 const notificationPreferenceItems: NotificationPreferenceItem[] = [
   {
-    key: "new-orders",
+    key: "newOrders",
     title: "New Orders",
     description: "Receive alerts when a customer places a new order.",
     icon: UtensilsCrossed,
-    channels: { email: true, sms: true },
+    enabled: true,
   },
   {
-    key: "order-updates",
+    key: "orderUpdates",
     title: "Order Updates",
-    description: "Notifications about driver arrivals and delivery status.",
+    description: "Get notified about delivery status and driver arrivals.",
     icon: MapPin,
-    channels: { email: true, sms: true },
+    enabled: true,
   },
   {
-    key: "customer-reviews",
-    title: "Customer Reviews",
-    description: "Get notified when you receive a new review.",
+    key: "lowInventory",
+    title: "Low Inventory",
+    description: "Receive alerts when stock levels fall below a threshold.",
     icon: Users,
-    channels: { email: true, sms: true },
+    enabled: true,
   },
   {
-    key: "payouts-finance",
-    title: "Payouts & Finance",
-    description: "Weekly payout summaries and invoice alerts.",
+    key: "financialAlerts",
+    title: "Financial Alerts",
+    description: "Receive notifications for payouts and invoice events.",
     icon: DollarSign,
-    channels: { email: true, sms: true },
-  },
-  {
-    key: "system-updates",
-    title: "System Updates",
-    description: "Important updates about the platform and features.",
-    icon: Settings,
-    channels: { email: true, sms: true },
+    enabled: true,
   },
 ]
 
@@ -76,53 +76,43 @@ const notificationSwitchColorMap = {
   },
 } as const
 
-function NotificationChannelSwitch({
-  channel,
-  checked,
-  onCheckedChange,
+function NotificationToggleButton({
+  enabled,
+  onToggle,
 }: {
-  channel: NotificationChannel
-  checked: boolean
-  onCheckedChange: (channel: NotificationChannel) => void
+  enabled: boolean
+  onToggle: () => void
 }) {
-  const switchColorKey = checked ? "enabled" : "disabled"
+  const switchColorKey = enabled ? "enabled" : "disabled"
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-xs font-medium tracking-wide text-slate-400">
-        {channel.toUpperCase()}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-label={`${channel} notifications`}
-        aria-checked={checked}
-        onClick={() => onCheckedChange(channel)}
+    <button
+      type="button"
+      role="switch"
+      aria-label={enabled ? "Turn off notification" : "Turn on notification"}
+      aria-checked={enabled}
+      onClick={onToggle}
+      className={cn(
+        "relative h-6 w-11 rounded-full transition-colors",
+        notificationSwitchColorMap[switchColorKey].track
+      )}
+    >
+      <span
         className={cn(
-          "relative h-6 w-11 rounded-full transition-colors",
-          notificationSwitchColorMap[switchColorKey].track
+          "absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform",
+          notificationSwitchColorMap[switchColorKey].thumb
         )}
-      >
-        <span
-          className={cn(
-            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform",
-            notificationSwitchColorMap[switchColorKey].thumb
-          )}
-        />
-      </button>
-    </div>
+      />
+    </button>
   )
 }
 
 function NotificationPreferenceRow({
   item,
-  onToggleChannel,
+  onToggle,
 }: {
   item: NotificationPreferenceItem
-  onToggleChannel: (
-    key: NotificationPreferenceItem["key"],
-    channel: NotificationChannel
-  ) => void
+  onToggle: (key: NotificationPreferenceItem["key"]) => void
 }) {
   return (
     <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -139,44 +129,68 @@ function NotificationPreferenceRow({
         </div>
       </div>
 
-      <div className="flex items-end gap-6">
-        {(["email", "sms"] as NotificationChannel[]).map((channel) => (
-          <NotificationChannelSwitch
-            key={channel}
-            channel={channel}
-            checked={item.channels[channel]}
-            onCheckedChange={(nextChannel) =>
-              onToggleChannel(item.key, nextChannel)
-            }
-          />
-        ))}
+      <div className="flex items-center gap-4">
+        <span className="text-sm font-medium text-slate-600">
+          {item.enabled ? "Enabled" : "Disabled"}
+        </span>
+        <NotificationToggleButton
+          enabled={item.enabled}
+          onToggle={() => onToggle(item.key)}
+        />
       </div>
     </div>
   )
+}
+
+function buildPayload(
+  preferences: NotificationPreferenceItem[]
+): UpdateNotificationSettingsPayload {
+  return preferences.reduce(
+    (payload, item) => ({
+      ...payload,
+      [item.key]: item.enabled,
+    }),
+    {
+      newOrders: false,
+      orderUpdates: false,
+      lowInventory: false,
+      financialAlerts: false,
+    }
+  ) as UpdateNotificationSettingsPayload
 }
 
 export function NotificationsSettingsTab() {
   const [preferences, setPreferences] = useState<NotificationPreferenceItem[]>(
     notificationPreferenceItems
   )
+  const updateNotificationSettingsMutation =
+    useUpdateNotificationSettingsMutation()
 
-  function handleToggleChannel(
-    key: NotificationPreferenceItem["key"],
-    channel: NotificationChannel
-  ) {
+  const isSaving = updateNotificationSettingsMutation.isPending
+  const saveMessage = useMemo(() => {
+    if (updateNotificationSettingsMutation.isSuccess) {
+      return "Notification settings saved successfully."
+    }
+    if (updateNotificationSettingsMutation.isError) {
+      return updateNotificationSettingsMutation.error.message
+    }
+    return null
+  }, [
+    updateNotificationSettingsMutation.error,
+    updateNotificationSettingsMutation.isError,
+    updateNotificationSettingsMutation.isSuccess,
+  ])
+
+  function handleToggle(key: NotificationPreferenceKey) {
     setPreferences((currentPreferences) =>
       currentPreferences.map((item) =>
-        item.key === key
-          ? {
-              ...item,
-              channels: {
-                ...item.channels,
-                [channel]: !item.channels[channel],
-              },
-            }
-          : item
+        item.key === key ? { ...item, enabled: !item.enabled } : item
       )
     )
+  }
+
+  function handleSave() {
+    updateNotificationSettingsMutation.mutate(buildPayload(preferences))
   }
 
   return (
@@ -196,11 +210,36 @@ export function NotificationsSettingsTab() {
             <NotificationPreferenceRow
               key={item.key}
               item={item}
-              onToggleChannel={handleToggleChannel}
+              onToggle={handleToggle}
             />
           ))}
         </div>
       </CardContent>
+
+      <CardFooter className="flex flex-col gap-3 px-6 pt-4 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {saveMessage ? (
+            <p
+              className={cn(
+                "text-sm",
+                updateNotificationSettingsMutation.isSuccess
+                  ? "text-emerald-600"
+                  : "text-destructive"
+              )}
+            >
+              {saveMessage}
+            </p>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="w-full sm:w-auto"
+        >
+          {isSaving ? "Saving..." : "Save Notification Settings"}
+        </Button>
+      </CardFooter>
     </Card>
   )
 }

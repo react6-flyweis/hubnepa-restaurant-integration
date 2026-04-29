@@ -47,6 +47,36 @@ type BeverageListResponseData = {
   pagination: Pagination
 }
 
+export type KitchenItemRecord = {
+  _id: string
+  restaurant: string
+  itemName: string
+  category: string
+  itemType: string
+  unitOfMeasure: string
+  currentStock: number
+  minThreshold: number
+  costPerUnit: number
+  status: "In Stock" | "Low" | "Out of Stock"
+  expiryDate: string | null
+  createdAt: string
+  updatedAt: string
+  __v: number
+}
+
+type KitchenItemsStats = {
+  _id: null
+  totalValue: number
+  lowStock: number
+  total: number
+}
+
+type KitchenItemsResponseData = {
+  data: KitchenItemRecord[]
+  pagination: Pagination
+  stats: KitchenItemsStats
+}
+
 export async function addBeverage(payload: AddBeveragePayload) {
   const response = await api.post<ApiResponse<AddBeverageResponseData>>(
     "/restaurant-panel/inventory/beverages",
@@ -59,6 +89,20 @@ export async function addBeverage(payload: AddBeveragePayload) {
 export async function getBeverages(page = 1, limit = 10) {
   const response = await api.get<ApiResponse<BeverageListResponseData>>(
     "/restaurant-panel/inventory/beverages",
+    {
+      params: {
+        page,
+        limit,
+      },
+    }
+  )
+
+  return response.data.data
+}
+
+export async function getKitchenItems(page = 1, limit = 20) {
+  const response = await api.get<ApiResponse<KitchenItemsResponseData>>(
+    "/restaurant-panel/inventory",
     {
       params: {
         page,

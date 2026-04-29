@@ -113,3 +113,26 @@ export async function getKitchenItems(page = 1, limit = 20) {
 
   return response.data.data
 }
+
+export type AddKitchenItemPayload = {
+  itemName: string
+  category: string
+  itemType: "Raw" | "Solid"
+  unit: string
+  currentStock: number
+  minThreshold: number
+  costPerUnit: number
+}
+
+type AddKitchenItemResponseData = {
+  item: KitchenItemRecord
+}
+
+export async function addKitchenItem(payload: AddKitchenItemPayload) {
+  const response = await api.post<ApiResponse<AddKitchenItemResponseData>>(
+    "/restaurant-panel/inventory",
+    payload
+  )
+
+  return response.data.data.item
+}

@@ -33,7 +33,7 @@ type AddBeverageResponseData = {
   bev: BeverageRecord
 }
 
-type BeverageListPagination = {
+export type Pagination = {
   total: number
   page: number
   limit: number
@@ -44,7 +44,7 @@ type BeverageListPagination = {
 
 type BeverageListResponseData = {
   data: BeverageRecord[]
-  pagination: BeverageListPagination
+  pagination: Pagination
 }
 
 export async function addBeverage(payload: AddBeveragePayload) {

@@ -2,7 +2,6 @@ import { useState } from "react"
 import { Filter } from "lucide-react"
 import type { OrderColumnsState } from "@/components/order/orderTypes"
 import { createInitialColumnsState } from "@/components/order/orderUtils"
-import { orderColumns } from "@/components/order/orderConstants"
 import { LiveOrdersTab } from "@/components/order/LiveOrdersTab"
 import { OrderHistoryTab } from "@/components/order/OrderHistoryTab"
 
@@ -12,17 +11,9 @@ import { cn } from "@/lib/utils"
 
 export default function OrderManagementPage() {
   const [activeTab, setActiveTab] = useState<"live" | "history">("live")
-  // seed the live orders board with the hard‑coded samples defined in
-  // orderConstants.ts so that the UI shows the same orders it did previously
-  const [columns, setColumns] = useState<OrderColumnsState>(() => {
-    const initial = createInitialColumnsState()
-    // `orderColumns` mirrors the columns displayed; its `orders` arrays
-    // contain the sample items we want to seed into state.
-    orderColumns.forEach((col) => {
-      initial[col.key] = col.orders
-    })
-    return initial
-  })
+  const [columns, setColumns] = useState<OrderColumnsState>(() =>
+    createInitialColumnsState()
+  )
 
   return (
     <div className="p-6">
